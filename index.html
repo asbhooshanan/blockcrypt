@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'"
+    />
+    <meta
+      http-equiv="X-Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'"
+    /> -->
+  <title>Blockly Prototype</title>
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/11.1.0/jsrsasign-all-min.js"></script>
+  <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
+  <script src="https://unpkg.com/node-forge@1.0.0/dist/forge.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/openpgp@6.1.1/dist/openpgp.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/14.5.2/math.js"></script>
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #blocklyDiv { height: 480px; width: 100%; }
+    #buttons { padding: 10px; }
+  </style>
+</head>
+
+<body>
+  <div id="blocklyDiv"></div>
+  <div id="buttons">
+    <button onclick="runCode()">Run JavaScript</button>
+    <pre id="output"></pre>
+  </div>
+
+  <xml id="toolboxCategories" style="display: none">
+     <category name="Logic" colour="210">
+       <block type="controls_if"></block>
+       <block type="logic_compare"></block>
+       <block type="logic_boolean"></block>
+       <block type="logic_operation"></block>
+       <block type="logic_negate"></block>
+       <block type="logic_ternary"></block>
+     </category>
+     <category name="Loops" colour="120">
+      <block type="controls_repeat_ext"></block>
+      <block type="controls_whileUntil"></block>
+      <block type="controls_for"></block>
+      <block type="controls_forEach"></block>
+      <block type="controls_flow_statements"></block>
+     </category>
+     <category name="Lists" colour="255">
+      <block type="lists_create_with"></block>
+      <block type="lists_length"></block>
+      <block type="lists_getIndex"></block>
+      <block type="lists_split"></block>
+     </category>
+     <category name="Text" colour="160">
+      <block type="text"></block>
+      <block type="text_print"></block>
+      <block type="text_append"></block>
+      <block type="text_join"></block>
+      <block type="text_length"></block>
+     </category>
+     <category name="Math" colour="225">
+      <block type="math_number"></block>
+      <block type="math_arithmetic"></block>
+      <block type="math_number_property"></block>
+      <block type="math_modulo"></block>
+      <block type="math_random_int"></block>
+      <block type="math_random_float"></block>
+    </category>
+    <category name="Variables" colour="330" custom="VARIABLE"></category>
+    <category name="Encryption" colour="15">
+      <block type="aes_key_gen"></block>
+      <block type="aes_encrypt"></block>
+      <block type="aes_decrypt"></block>
+      <block type="rsa_key_gen"></block>
+      <block type="rsa_encrypt"></block>
+      <block type="rsa_decrypt"></block>
+      <block type="elgamal_key_gen"></block>
+    </category>
+    <category name="Hash Functions" colour="60">
+      <block type="sha1_hash"></block>
+      <block type="sha256_hash"></block>
+      <block type="md5_hash"></block>
+    </category>
+    <category name="Digital Signatures" colour="0">
+      <block type="rsa_sign"></block>
+      <block type="dsa_sign"></block>
+      <block type="ecdsa_sign"></block>
+    </category>
+  </xml>
+
+  <script>
+
+    // Custom block definitions
+
+    //AES KEY GENERATION
+    const aes_key_gen = {
+	init: function() {
+		this.appendDummyInput()
+        		.appendField("Generate AES Key");
+		this.setOutput(true, "String");
+		this.setTooltip('Generates a random AES key');
+    		this.setHelpUrl('');
+    		this.setColour(20);
+    	}
+    };
+    Blockly.common.defineBlocks({aes_key_gen : aes_key_gen });
+
+    //AES ENCRYPT
+    const aes_encrypt = {
+	init: function() {
+		this.appendValueInput("TEXT") 
+			.setCheck("String")
+        		.appendField("encrypt");
+		this.appendValueInput("KEY") 
+			.setCheck("String")
+        		.appendField("with AES key");
+		this.setOutput(true, "String");
+		this.setTooltip('Encrypt text with AES key');
+    		this.setHelpUrl('');
+    		this.setColour(20);
+    	}
+    };
+    Blockly.common.defineBlocks({aes_encrypt : aes_encrypt});
+
+    //AES DECRYPT
+    const aes_decrypt = {
+	init: function() {
+		this.appendValueInput("CIPHER") 
+			.setCheck("String")
+        		.appendField("decrypt");
+		this.appendValueInput("KEY") 
+			.setCheck("String")
+        		.appendField("with AES key");
+		this.setOutput(true, "String");
+		this.setTooltip('Decrypt cipher with AES key');
+    		this.setHelpUrl('');
+    		this.setColour(20);
+    	}
+    };
+    Blockly.common.defineBlocks({aes_decrypt : aes_decrypt});
+
+    //RSA KEY GENERATION
+    const rsa_key_gen = {
+	init: function() {
+		this.appendDummyInput()
+        		.appendField("Generate RSA Key Pair and create");
+   this.appendDummyInput()
+        .appendField(new Blockly.FieldVariable("rsaKeyPair"), "PAIR")
+        .appendField(",")
+        .appendField(new Blockly.FieldVariable("rsaPrvKey"), "PRV")
+        .appendField(", and")
+        .appendField(new Blockly.FieldVariable("rsaPubKey"), "PUB")
+        .appendField("variables");
+		this.setOutput(true, "Array");
+    		this.setColour(15);
+    		this.setTooltip("Generates RSA key pair and adds key pair, private key, and public key variables to workspace");
+    		this.setHelpUrl("");
+	    }
+    };
+    Blockly.common.defineBlocks({rsa_key_gen : rsa_key_gen});
+
+    //EL-GAMAL KEY GENERATION
+    const elgamal_key_gen = {
+	init: function() {
+		this.appendDummyInput()
+        		.appendField("Generate El-Gamal key pair and create");
+   this.appendDummyInput()
+        .appendField(new Blockly.FieldVariable("elgKeyPair"), "PAIR")
+        .appendField(",")
+        .appendField(new Blockly.FieldVariable("elgPrvKey"), "PRV")
+        .appendField(", and")
+        .appendField(new Blockly.FieldVariable("elgPubKey"), "PUB")
+        .appendField("variables -- THIS BLOCK IS NOT FUNCTIONAL");
+		this.setOutput(true, "Array");
+    		this.setColour(15);
+    		this.setTooltip("Generates El-Gamal key pair and adds prvKey and pubKey variables");
+    		this.setHelpUrl("");
+	    }
+    };
+    Blockly.common.defineBlocks({elgamal_key_gen : elgamal_key_gen});
+
+    //SHA1 HASH
+    const sha1_hash = {
+	init: function() {
+		this.appendValueInput("TEXT") 
+			.setCheck("String")
+        		.appendField("encrypt");
+		this.appendDummyInput()
+        		.appendField("with SHA1 hash function");
+		this.setOutput(true, "String");
+		this.setTooltip('Encrypt text with SHA1 hash function');
+    		this.setHelpUrl('');
+    		this.setColour(60);
+    	}
+    };
+    Blockly.common.defineBlocks({sha1_hash : sha1_hash });
+
+    //SHA256 HASH
+    const sha256_hash = {
+	init: function() {
+		this.appendValueInput("TEXT") 
+			.setCheck("String")
+        		.appendField("encrypt");
+		this.appendDummyInput()
+        		.appendField("with SHA256 hash function");
+		this.setOutput(true, "String");
+		this.setTooltip('Encrypt text with SHA256 hash function');
+    		this.setHelpUrl('');
+    		this.setColour(60);
+    	}
+    };
+    Blockly.common.defineBlocks({sha256_hash : sha256_hash});
+
+    //MD5 HASH
+    const md5_hash = {
+	init: function() {
+    this.appendValueInput("TEXT") 
+			.setCheck("String")
+        		.appendField("encrypt");
+		this.appendDummyInput()
+        		.appendField("with MD5 hash function");
+		this.setOutput(true, "String");
+		this.setTooltip('Generates MD5 hash from given string');
+    		this.setHelpUrl('');
+    		this.setColour(60);
+    	}
+    };
+    Blockly.common.defineBlocks({md5_hash : md5_hash });
+
+    //RSA SIGN
+    const rsa_sign = {
+	init: function() {
+		this.appendDummyInput()
+        		.appendField("generate RSA signature for");
+		this.appendValueInput("TEXT") 
+			.setCheck("String")
+		this.setOutput(true, "String");
+		this.setTooltip('Generate RSA signature to encrypt data');
+    		this.setHelpUrl('');
+    		this.setColour(0);
+    	}
+    };
+    Blockly.common.defineBlocks({rsa_sign : rsa_sign});
+
+    //DSA SIGN
+    const dsa_sign = {
+      init: function() {
+		this.appendDummyInput()
+        		.appendField("generate DSA signature for");
+		this.appendValueInput("TEXT") 
+			.setCheck("String")
+		this.setOutput(true, "String");
+		this.setTooltip('Generate DSA signature to encrypt data');
+    		this.setHelpUrl('');
+    		this.setColour(0);
+    	}
+    };
+    Blockly.common.defineBlocks({dsa_sign : dsa_sign});
+
+    //ECDSA SIGN
+    const ecdsa_sign = {
+      init: function() {
+		this.appendDummyInput()
+        		.appendField("generate ECDSA signature for");
+		this.appendValueInput("TEXT") 
+			.setCheck("String")
+		this.setOutput(true, "String");
+		this.setTooltip('Generate ECDSA signature to encrypt data');
+    		this.setHelpUrl('');
+    		this.setColour(0);
+    	}
+    };
+    Blockly.common.defineBlocks({ecdsa_sign : ecdsa_sign});
+
+    //RSA ENCRYPT
+    const rsa_encrypt = {
+      init: function() {
+		this.appendValueInput("TEXT") 
+			.setCheck("String")
+        		.appendField("RSA encrypt");
+		this.appendValueInput("KEY") 
+			//.setCheck("String")
+        		.appendField("with public key");
+		this.setOutput(true, "String");
+		this.setTooltip('Encrypt text with public RSA key');
+    		this.setHelpUrl('');
+    		this.setColour(20);
+    	}
+    }
+    Blockly.common.defineBlocks({rsa_encrypt : rsa_encrypt});
+
+    //RSA ENCRYPT
+    const rsa_decrypt = {
+      init: function() {
+		this.appendValueInput("TEXT") 
+			.setCheck("String")
+        		.appendField("RSA decrypt");
+		this.appendValueInput("KEY") 
+			//.setCheck("String")
+        		.appendField("with private key");
+		this.setOutput(true, "String");
+		this.setTooltip('Decrypt text with private RSA key');
+    		this.setHelpUrl('');
+    		this.setColour(20);
+    	}
+    }
+    Blockly.common.defineBlocks({rsa_decrypt : rsa_decrypt});
+
+    // Javascript Generators
+
+    javascript.javascriptGenerator.forBlock['aes_key_gen'] = function(block) {
+  	  const code = 'CryptoJS.lib.WordArray.random(16).toString()\n';
+
+  	  return [code, javascript.Order.NONE];
+    };
+
+    javascript.javascriptGenerator.forBlock['aes_encrypt'] = function(block) {
+  	  const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+      const key = Blockly.JavaScript.valueToCode(block, 'KEY', Blockly.JavaScript.ORDER_NONE);
+      const code = [`CryptoJS.AES.encrypt(${text}, ${key}).toString()`, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+
+      return code;
+    };
+
+    javascript.javascriptGenerator.forBlock['aes_decrypt'] = function(block) {
+      const cipher = Blockly.JavaScript.valueToCode(block, 'CIPHER', Blockly.JavaScript.ORDER_NONE);
+      const key = Blockly.JavaScript.valueToCode(block, 'KEY', Blockly.JavaScript.ORDER_NONE);
+      const code = [`CryptoJS.AES.decrypt(${cipher}, ${key}).toString(CryptoJS.enc.Utf8)`, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+      
+      return code;
+    };
+
+    javascript.javascriptGenerator.forBlock['rsa_key_gen'] = function(block) {
+	    
+      const code = `(function() {
+		    var keypair = KEYUTIL.generateKeypair("RSA", 1024);
+		    var prvKey = KEYUTIL.getPEM(keypair.prvKeyObj, "PKCS8PRV");
+		    var pubKey = KEYUTIL.getPEM(keypair.pubKeyObj);
+	      
+        return [prvKey, pubKey];
+	    })()`;
+	
+      return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    javascript.javascriptGenerator.forBlock['elgamal_key_gen'] = function(block) {
+      //find generator or code natively
+      //var a = Math.floor(Math.random() * (9) + 2);
+
+      // const code = `(function() {
+      // var q = randomInt(Math.pow(10, 20), pow(10, 50));
+      // var g = randomInt(2, q);
+
+      // var key = randomInt(Math.pow(10, 20), q);
+      // while (math.gcd(q, key) != 1)
+      // {
+      //   key = randomInt(pow(10, 20), q);
+      // }
+
+      // var h = Math.pow(g, key, q);
+      // pubKey = [q, h, g];
+
+		  //   var elgPubKey = pubKey;
+	      
+      //   return elgPubKey;
+	    // })()`;
+      return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    javascript.javascriptGenerator.forBlock['sha1_hash'] = function(block) {
+      const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+      const code = [`CryptoJS.SHA1(${text}).toString()`, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+      
+      return code;
+    };
+
+    javascript.javascriptGenerator.forBlock['sha256_hash'] = function(block) {
+      const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+      const code = [`CryptoJS.SHA256(${text}).toString()`, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+      
+      return code;
+    };
+
+    javascript.javascriptGenerator.forBlock['md5_hash'] = function(block) {
+  	  const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+  	  const code = [`CryptoJS.MD5(${text}).toString()`, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    
+      return code;
+    };
+
+    javascript.javascriptGenerator.forBlock['rsa_sign'] = function(block) {
+	    const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+
+  	  const code = `(function() {
+    	  var rsaKeypair = KEYUTIL.generateKeypair("RSA", 1024);but
+    	  var prvKeyPEM = KEYUTIL.getPEM(rsaKeypair.prvKeyObj, "PKCS8PRV");
+    	  var sig = new KJUR.crypto.Signature({"alg": "SHA1withRSA"});
+    	  
+        sig.init(prvKeyPEM);
+    	  sig.updateString(${text});
+    	
+        return sig.sign();
+    	})()`;
+
+      return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    javascript.javascriptGenerator.forBlock['dsa_sign'] = function(block) {
+	  const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+
+  	const code = `(function() {
+        var dsaKeypair = KEYUTIL.generateKeypair("DSA", 1024);
+    		var prvKeyPEM = KEYUTIL.getPEM(dsaKeypair.prvKeyObj, "PKCS8PRV");
+        var sig = new KJUR.crypto.Signature({ alg: "SHA1withDSA" });
+
+        sig.init(prvKeyPEM);
+        sig.updateString(${text});
+        var hSigVal = sig.sign();
+
+        return hSigVal;
+    	})()`;
+
+      return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    javascript.javascriptGenerator.forBlock['ecdsa_sign'] = function(block) {
+	  const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+
+  	const code = `(function() {
+        var ecdsaKeypair = KEYUTIL.generateKeypair("EC", "secp256r1");
+    		var prvKeyPEM = KEYUTIL.getPEM(ecdsaKeypair.prvKeyObj, "PKCS8PRV");
+        var sig = new KJUR.crypto.Signature({ alg: "SHA1withECDSA" });
+
+        sig.init(prvKeyPEM);
+        sig.updateString(${text});
+        var hSigVal = sig.sign();
+
+        return hSigVal;
+    	})()`;
+
+      return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    javascript.javascriptGenerator.forBlock['rsa_encrypt'] = function(block) {
+      const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+      const key = Blockly.JavaScript.valueToCode(block, 'KEY', Blockly.JavaScript.ORDER_NONE);
+
+      const code = `(function() {
+        var pubKeyForge = forge.pki.publicKeyFromPem(${key});
+        
+        var encrypted = pubKeyForge.encrypt(forge.util.encodeUtf8(${text}), 'RSAES-OAEP');
+        return forge.util.encode64(encrypted);
+      })()`;
+
+      return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    javascript.javascriptGenerator.forBlock['rsa_decrypt'] = function(block) {
+      const text = Blockly.JavaScript.valueToCode(block, 'TEXT', Blockly.JavaScript.ORDER_NONE);
+      const key = Blockly.JavaScript.valueToCode(block, 'KEY', Blockly.JavaScript.ORDER_NONE);
+
+      const code = `(function() {
+        var prvKeyForge = forge.pki.privateKeyFromPem(${key});
+        var textBytes = forge.util.decode64(${text});
+        var decrypted = prvKeyForge.decrypt(textBytes, 'RSAES-OAEP');
+
+        return forge.util.decodeUtf8(decrypted);
+      })()`;
+
+      return [code, Blockly.JavaScript.ORDER_FUNCTION_CALL];
+    };
+
+    // Inject Blockly AFTER blocks and generator functions are defined
+
+    window.addEventListener('load', () => {
+    window.workspace = Blockly.inject('blocklyDiv', {
+       toolbox: document.getElementById('toolboxCategories'),
+       scrollbars: true
+      });
+    });
+
+    // Run code
+
+    function runCode() {
+      try {
+        const code = Blockly.JavaScript.workspaceToCode(window.workspace);
+        const result = eval(code);
+        document.getElementById('output').textContent = "Result:\n" + result;
+      } catch (e) {
+        document.getElementById('output').textContent = "Error:\n" + e;
+      }
+    }
+  </script>
+  
+</body>
+<script src="./renderer.js"></script>
+</html>
