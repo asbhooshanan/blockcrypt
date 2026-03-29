@@ -22,5 +22,13 @@ contextBridge.exposeInMainWorld('versions', {
   chrome: () => process.versions.chrome,
   electron: () => process.versions.electron,
   ping: () => ipcRenderer.invoke('ping')
-  // we can also expose variables, not just functions
+  //we can also expose variables, not just functions
+})
+
+
+contextBridge.exposeInMainWorld('api', {
+  onMessage: (callback) =>
+    ipcRenderer.on('ws-message', (event, data) => callback(data)),
+  onStatus: (callback) =>
+    ipcRenderer.on('ws-status', (event, status) => callback(status))
 })

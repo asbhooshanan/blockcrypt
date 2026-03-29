@@ -1,0 +1,15 @@
+info:
+  name: echo-ws
+  type: websocket
+  seq: 2
+
+websocket:
+  url: ws://localhost:8765
+  message:
+    type: text
+    data: Hello! How are you?
+  auth: inherit
+
+settings:
+  timeout: 0
+  keepAliveInterval: 0

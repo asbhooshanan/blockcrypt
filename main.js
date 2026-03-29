@@ -66,65 +66,97 @@ const { app, BrowserWindow, ipcMain } = require('electron/main')
 const path = require('node:path')
 const WebSocket = require('ws');
 
-let ws = null;
+let win
+let ws = null
 
-function createWebSocketConnection() {
-  return new Promise((resolve, reject) => {
-    let wsTimeout;
-    try {
-      ws = new WebSocket('ws://127.0.0.1:8777');
+// function createWebSocketConnection() {
+//   return new Promise((resolve, reject) => {
+//     let wsTimeout;
+//     try {
+//       ws = new WebSocket('ws://127.0.0.1:8777');
 
-      ws.on('open', function open() {
-        console.log('WebSocket connection opened');
-        clearTimeout(wsTimeout);
-        attachStatusListener();
-        resolve();
-      });
+//       ws.on('open', function open() {
+//         console.log('WebSocket connection opened');
+//         clearTimeout(wsTimeout);
+//         attachStatusListener();
+//         resolve();
+//       });
 
-      ws.on('error', function error(err) {
-        console.error('WebSocket error:', err.message);
-        clearTimeout(wsTimeout);
-        reject(err);
-      });
+//       ws.on('error', function error(err) {
+//         console.error('WebSocket error:', err.message);
+//         clearTimeout(wsTimeout);
+//         reject(err);
+//       });
 
-      ws.on('close', function close() {
-        console.log('WebSocket connection closed');
-      });
+//       ws.on('close', function close() {
+//         console.log('WebSocket connection closed');
+//       });
 
-      // Increase timeout to 10 seconds and add detailed logging
-      wsTimeout = setTimeout(() => {
-        if (ws && ws.readyState !== WebSocket.OPEN) {
-          console.warn('WebSocket connection timeout after 10s, terminating...');
-          try { ws.terminate?.(); } catch { }
-          reject(new Error('WebSocket connection timeout (10s)'));
-        }
-      }, 10000);
-    } catch (error) {
-      clearTimeout(wsTimeout);
-      reject(error);
-    }
-  });
-}
+//       // Increase timeout to 10 seconds and add detailed logging
+//       wsTimeout = setTimeout(() => {
+//         if (ws && ws.readyState !== WebSocket.OPEN) {
+//           console.warn('WebSocket connection timeout after 10s, terminating...');
+//           try { ws.terminate?.(); } catch { }
+//           reject(new Error('WebSocket connection timeout (10s)'));
+//         }
+//       }, 10000);
+//     } catch (error) {
+//       clearTimeout(wsTimeout);
+//       reject(error);
+//     }
+//   });
+// }
 
 const createWindow = () => {
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
     }
   })
   win.loadFile('index.html')
 }
-app.whenReady().then(async () => {
-  ipcMain.handle('ping', () => 'pong')
-  createWindow()
 
-  try {
-    await createWebSocketConnection()
-  } catch (err) {
-    console.error('Initial WS connection failed:', err.message)
-  }
+function createWebSocketConnection() {
+  ws = new WebSocket('ws://127.0.0.1:8777');
+
+  ws.on('open', () => {
+    console.log('main.js: Connected to Python server')
+    win.webContents.send('ws-status', 'connected')
+  })
+
+  ws.on('message', (data) => {
+    console.log('📩 main.js: From Python:', data.toString())
+
+    // Send message to renderer
+    win.webContents.send('ws-message', data.toString())
+  })
+
+  ws.on('close', () => {
+    console.log('❌ main.js: WebSocket closed')
+    win.webContents.send('ws-status', 'disconnected')
+  })
+
+  ws.on('error', (err) => {
+    console.error('main.js: WebSocket error:', err.message)
+  })
+}
+
+app.whenReady().then(async () => {
+  //ipcMain.handle('ping', () => 'pong')
+  createWindow()
+  win.webContents.once('did-finish-load', () => {
+    createWebSocketConnection()
+  })
+
+  // try {
+  //   await createWebSocketConnection()
+  // } catch (err) {
+  //   console.error('Initial WS connection failed:', err.message)
+  // }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -137,6 +169,7 @@ app.whenReady().then(async () => {
 ipcMain.handle('ws-connect', async () => {
   try {
     await createWebSocketConnection()
+    console.log("ipcMain.handle clause entered")
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message }

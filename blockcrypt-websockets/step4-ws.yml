@@ -1,0 +1,11 @@
+info:
+  name: step4-ws
+  type: websocket
+  seq: 4
+
+websocket:
+  url: ws://localhost:8765
+  message:
+    type: json
+    data: "{}"
+  auth: inherit

@@ -11,6 +11,7 @@
       content="default-src 'self'; script-src 'self'"
     /> -->
   <title>Blockly Prototype</title>
+  <script src="./renderer.js"></script>
   <script src="https://unpkg.com/blockly/blockly.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/11.1.0/jsrsasign-all-min.js"></script>
@@ -29,9 +30,17 @@
 <body>
   <div id="blocklyDiv"></div>
   <div id="buttons">
-    <button onclick="runCode()">Run JavaScript</button>
-    <pre id="output"></pre>
+  <button onclick="runCode()">Run JavaScript</button>
+
+  <div>
+    Backend Status:
+    <span id="backendStatus" style="color: red;">Disconnected</span>
   </div>
+
+  <pre id="output"></pre>
+
+  <pre id="messages" style="background:#f5f5f5; padding:10px;"></pre>
+</div>
 
   <xml id="toolboxCategories" style="display: none">
      <category name="Logic" colour="210">
@@ -497,5 +506,5 @@
   </script>
   
 </body>
-<script src="./renderer.js"></script>
+
 </html>
